@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: WooCommerce Payment Gateway for PayGate Korea(페이게이트)
-Plugin URI: http://blog.sunnysidesoft.com/paygate-plugin
+Plugin URI: http://blog.sunnysidesoft.com/woocommerce-paygate
 Description: Extends WooCommerce with an PayGate(Korean payment gateway company) gateway. Woocommerce에서 사용가능한 페이게이트 지불 게이트웨이 모듈입니다.
 Version: 1.0
 Author: YoungJae Kwon, admin@sunnysidesoft.com
