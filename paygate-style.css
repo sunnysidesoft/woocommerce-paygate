@@ -1,0 +1,11 @@
+#PGIOscreen {
+	width: 350px;
+}
+
+.payment_input_hidden {
+	display: none;
+}
+
+.payment_input_result {
+	display: none;
+}
