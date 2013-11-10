@@ -14,11 +14,12 @@ Author URI: http://sunnysidesoft.com/
 */
 
 add_action('plugins_loaded', 'woocommerce_gateway_paygate_init', 0);
-add_action('woocommerce_after_checkout_form', 'woocommerce_gateway_paygate_print_creditcard_code', 0);
 
 add_action('wp_print_styles', 'woocommerce_gateway_paygate_style');
 add_action('wp_print_scripts', 'woocommerce_gateway_paygate_script');
 
+/* define( SS_PAYGATE_PLUGIN_DIR,  plugin_dir_url ( __FILE__ ) ); */
+define( SS_PAYGATE_PLUGIN_DIR,  plugins_url().'/'.basename(plugin_dir_url ( __FILE__ )).'/' ); // to resolve symbolic link path problem.
 
 function get_woocommerce_major_version() {
 	global $woocommerce;
@@ -37,7 +38,7 @@ function get_woocommerce_major_version() {
 */
 function woocommerce_gateway_paygate_style() {
     
-	wp_register_style('sunnysidesoft_paygate_css', plugins_url('paygate-style.css', __FILE__));
+	wp_register_style('sunnysidesoft_paygate_css', SS_PAYGATE_PLUGIN_DIR.'paygate-style.css');
     wp_enqueue_style( 'sunnysidesoft_paygate_css');
 }
 
@@ -54,36 +55,10 @@ function woocommerce_gateway_paygate_script() {
 	if( is_checkout() )
 	{
 		$suffix = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
-		
-		// replace checkout.js from woocommerce to plugin's checkout.js
-		wp_dequeue_script('wc-checkout');
 
-
-
-		if( get_woocommerce_major_version() >= 2) {
-			// woocommerce v1.6의 경우 prettyPhoto 라이브러리가 포함되어 있음
-			wp_enqueue_script( 'prettyPhoto', $woocommerce->plugin_url() . '/assets/js/prettyPhoto/jquery.prettyPhoto' . $suffix . '.js', array( 'jquery' ), '3.1.5', true );
-			wp_enqueue_script( 'prettyPhoto-init', $woocommerce->plugin_url() . '/assets/js/prettyPhoto/jquery.prettyPhoto.init' . $suffix . '.js', array( 'jquery' ), $woocommerce->version, true );
-			wp_enqueue_style( 'woocommerce_prettyPhoto_css', $woocommerce->plugin_url() . '/assets/css/prettyPhoto.css' );
-
-			wp_enqueue_script( 'wc-checkout-mod',  plugins_url('checkout-v2.x'. $suffix .'.js', __FILE__), array( 'jquery' ) );
-		}
-		else {
-			// woocommerce v1.6의 경우 fancybox 라이브러리가 포함되어 있음
-			wp_register_script( 'fancybox', plugins_url('/js/fancybox.js', __FILE__) );
-			wp_enqueue_script( 'fancybox'); 
-			wp_register_style('woocommerce_fancybox_styles', plugins_url('css/fancybox.css', __FILE__));
-			wp_enqueue_style( 'woocommerce_fancybox_styles' );
-			
-			wp_enqueue_script( 'wc-checkout-mod',  plugins_url('checkout-v1.x'. $suffix .'.js', __FILE__), array( 'jquery' ) );			
-		}
-
-  			
-		
-		
 		wp_enqueue_script( 'paygate-checkout', 'https://api.paygate.net/ajax/common/OpenPayAPI.js', array(), false, false );
 
-		wp_register_script('sunnysidesoft_paygate_js', plugins_url('paygate.js', __FILE__));
+		wp_register_script('sunnysidesoft_paygate_js', SS_PAYGATE_PLUGIN_DIR.'paygate.js');
 	    wp_enqueue_script( 'sunnysidesoft_paygate_js');
     
 	}
@@ -94,21 +69,6 @@ function woocommerce_gateway_paygate_script() {
 	
 }
 
-
-
-function woocommerce_gateway_paygate_print_creditcard_code() {
-	?>
-	<div id="PGIOscreenWrapper" style="display:none;">
-		<div id="PGIOscreen"></div>
-	</div>
-	<?php  if( get_woocommerce_major_version() >= 2 ) : ?>
-	<a id="btn_paygate_purchase" rel="prettyPhoto" href="#PGIOscreenWrapper"></a>
-	<?php else : ?>
-	<a id="btn_paygate_purchase" href="#PGIOscreen"></a>
-	<?php endif; ?>
-
-<?php
-}	
 
 function add_my_currency( $currencies ) {
 	$currencies['Korean'] = 'Korean won(₩)';
@@ -189,11 +149,16 @@ function woocommerce_gateway_paygate_init() {
 				
 				add_action('woocommerce_update_options_payment_gateways', array(&$this, 'process_admin_options'));
 			 }
-					
-			// Actions
+			
+			//  for processing PayGate payment Form
+			add_action('init',  array( $this, 'process_payment_action' ) );
+
+	    	add_action('woocommerce_receipt_'.$this->id, array(&$this, 'display_paygate_payment_form') );
 	    	add_action('woocommerce_thankyou_'.$this->id, array(&$this, 'thankyou_page'));
+
 	    	
 	    	$this->log_filename = 'paygate_transactions';
+	
 	    }
 	
 	
@@ -201,55 +166,12 @@ function woocommerce_gateway_paygate_init() {
 		* Payment form on checkout page
 		*/
 		function payment_fields() {
-			global $woocommerce;
-			
-			global $current_user;
-			get_currentuserinfo();
-			
-			?>
-			<?php if ($this->description) : ?><p><?php echo $this->description; ?></p><?php endif; ?>
-			<fieldset>
-				<div class="payment_input_hidden">
-					<input type="hidden" name="mid" value="<?php echo $this->mid;?>">
-					<input type="hidden" name="charset" value="UTF-8">
-					<select name="langcode">
-					   <option value=""></option>
-					   <option value="KR" selected="selected">KR</option>		   
-					   <option value="US">US</option>
-					   <option value="JP">JP</option>
-					   <option value="CN">CN</option>
-					</select>
-					<select name="paymethod">
-						<option value=""></option>
-						<option value="card" selected="selected">card</option>	
-						<option value="104">basic_usd</option>
-						<option value="100">BASIC</option>
-						<option value="101">BASIC_AUTH</option>
-						<option value="102">ISP</option>
-						<option value="103">VISA3D</option>
-					</select>
-					<input name="unitprice" value="<?php global $woocommerce; echo (int)$woocommerce->cart->total;?>" size="7">
-					<select name="goodcurrency">
-						<option value=""></option>
-						<option value="WON" selected="selected">won</option>
-						<option value="USD">US dollars</option>
-					</select>
-					<input name="goodname" value="<?php echo $this->goodname; ?>">
-					<input name="receipttoname" value="<?php echo $current_user->user_firstname; ?>">
-					<input name="receipttoemail" value="<?php echo $current_user->user_email; ?>">
-				</div>
-				<div class="payment_input_result">
-					<textarea name="ResultScreen" cols="60" rows="2"></textarea>
-					<input name="replycode" size="6" value="">
-					<input name="replyMsg" size="20" value="">
-					<input name="hashresult" type="hidden" value="">
-					<input name="mb_serial_no" type="hidden" value="0">
-					<input name="tid" type="hidden" value="">
-				</div>
-			</fieldset>
-			
-			<?php
+		
+			 if ($this->description) : ?>
+			 	<p><?php echo $this->description; ?></p><?php
+			 endif;
 		}
+		
 	    /**
 	     * Initialise Gateway Settings Form Fields
 	     *
@@ -308,12 +230,6 @@ function woocommerce_gateway_paygate_init() {
 								'type' => 'text',
 								'description' => __( '페이게이트의 거래금액 검증을 위해 페이게이트 관리자 페이지에서 발급받으신 hash key(salt)을 입력하세요. <a href="https://km.paygate.net/display/CS/Transaction+Hash+Verification%28SHA-256%29">설명</a>', 'sunnysidesoft' ),
 								'default' => ''
-							),
-				'error_page_url' => array(
-								'title' => __( '에러 페이지 URL', 'sunnysidesoft' ),
-								'type' => 'text',
-								'description' => __( '거래금액 검증 실패시 이동할 에러페이지 주소를 입력하세요. 관리자모드에서 \'페이지\'를 생성하신 후 해당 페이지의 주소를 넣어주시면 됩니다. ex)http://www.sunnysidesoft.com/payment_error', 'sunnysidesoft' ),
-								'default' => 'http://www.sunnysidesoft.com/payment_error'
 							),							
 				
 				'is_log_enabled' => array(
@@ -373,8 +289,8 @@ function woocommerce_gateway_paygate_init() {
 			</script>
 			<?php
 	    }
-	
-	
+
+
 	    /**
 	     * Process the payment and return the result
 	     *
@@ -384,95 +300,181 @@ function woocommerce_gateway_paygate_init() {
 	     */
 	    function process_payment( $order_id ) {
 	    	global $woocommerce;
+	    	$order = new WC_Order( $order_id );
 	    	
-	    	$logger = $woocommerce->logger();
-	    	$is_log_enabled = $this->is_log_enabled == 'yes' ? true : false;
-	    	$is_api_auth_hash_enabled = $this->is_api_auth_hash_enabled == 'yes' ? true : false;
-
-			if($is_log_enabled) $logger->add($this->log_filename,'----------------------------------------------------');	    				
-			if($is_log_enabled) $logger->add($this->log_filename, 'POST Params: tid='.$_POST['tid'].', hashresult='.$_POST['hashresult'].', replycode='.$_POST['replycode'].', mb_serial_no='.$_POST['mb_serial_no'].', unitprice='.$_POST['unitprice'].', goodcurrency='.$_POST['goodcurrency']);
-
+	    	
+	    	return array(
+				'result' 	=> 'success',
+				'redirect'	=> add_query_arg('order', $order->id, add_query_arg( 'key', $order->order_key, get_permalink(woocommerce_get_page_id('pay'))))
+			);
+		}
+		
+		function display_paygate_payment_form( $order_id ) {
+	        global $woocommerce;
+	        
+	        $order = new WC_Order( $order_id );
+	        
+	        // 결제시 표기될 상품명을 생성
+	        $items = $order->get_items();
+			$item_count = sizeof( $items );
 			
-			if ( $is_api_auth_hash_enabled ) {
-				if($is_log_enabled) $logger->add($this->log_filename,'API Auth Hash check is currently enabled.');
-				// hash 결과값 생성에 필요한 POST 입력값들의 존재여부를 체크. 실패시 결제 취소
-				if( !isset($_POST['tid']) || !isset($_POST['hashresult']) || !isset($_POST['replycode']) || !isset($_POST['mb_serial_no']) || !isset($_POST['unitprice']) || !isset($_POST['goodcurrency']) ) {
-					
-					if($is_log_enabled) $logger->add($this->log_filename, 'POST input parameter missing');
-					
-//					wp_die( __('결제 처리에 필요한 입력값들이 제대로 입력되지 않아서 결제오류가 발생하였습니다.', 'sunnysidesoft') );
+			if ( $item_count == 0 ) {
+				$goodname = '';	
+			}
+	        else if ( $item_count == 1 ) {
+	        	$item = $items[0];
+		        $goodname = $item['name'];
+	        }
+	        else  {
+	        	$item = $items[0];
+				$goodname = sprintf( __( '%s 외 %s건' , 'sunnysidesoft'), $item['name'], $item_count-1 );
+	        }
+	        
+			$goodname = strip_tags($goodname);
+	        
+	
+	        
+	        $action_url = add_query_arg('order', $order->id, add_query_arg( 'key', $order->order_key, get_permalink(woocommerce_get_page_id('pay')) ) );
+			?>
+			<div id="paygate_wrapper">
+				<div id="PGIOscreen" ></div>
+				<form method="post" name ="PGIOForm" id="PGIOForm" action="<?php echo $action_url;?>">
+					<?php $woocommerce->nonce_field('process_payment_action'); ?>
+					<fieldset>
+						<input type="hidden" name="mid" value="<?php echo $this->mid;?>">
+						<input type="hidden" name="charset" value="UTF-8">
+						<input type="hidden" name="KR">
 
-					return array(
-						'result' 	=> 'success', // 실제로는 실패지만, woocommerce코드쪽에 실패처리에 대한 코드가 없으므로 성공 처리후, 에러 페이지로 redirect.
-						'redirect'	=> $this->error_page_url
-					);
+						<input type="hidden" name="paymethod" value="card">
+						<input type="hidden" name="unitprice" value="<?php echo (int)$order->get_total();?>">
+						<input type="hidden" name="goodcurrency" value="WON">
+						
+						<input type="hidden" name="goodname" value="<?php echo $goodname; ?>">
+						<input type="hidden" name="receipttoname" value="<?php echo $current_user->user_firstname; ?>">
+						<input type="hidden" name="receipttoemail" value="<?php echo $current_user->user_email; ?>">
+
+						<input type="hidden" name="ResultScreen"></textarea>
+						<input type="hidden" name="replycode" value="">
+						<input type="hidden" name="replyMsg" value="">
+						<input type="hidden" name="hashresult" value="">
+						<input type="hidden" name="mb_serial_no" value="<?php echo $order_id;?>">
+						<input type="hidden" name="tid" value="">
+					</fieldset>
+					<input type="hidden" name="paygate_submit" />
+				 </form>
+				 <div id="paygate_submit_btn_wrapper">
+	             	<a class="button" href="#" id="paygate_submit_btn"><?php _e( '재시도', 'sunnysidesoft' ); ?></a>
+				 </div>
+			</div>	 
+			<?php
+	        
+	    }
+	    
+		function process_payment_action() {
+		
+			if(!isset( $_POST['paygate_submit'] ))
+				return;
+				
+			global $woocommerce;
+			
+			while(1) {
+					
+				if( !isset( $_GET['order'] ) || !isset( $_GET['key'] ) ) {
+					$woocommerce->add_error( __('잘못된 접근','sunnysidesoft') );
+					break;
 				}
 				
-				//PayGate Reference Doc: https://km.paygate.net/pages/viewpage.action?pageId=5439761
-				// WON -> KRW 변환
-				if( $_POST['goodcurrency'] == 'WON')
-					$goodcurrency = 'KRW';
-				else 
-					$goodcurrency = $_POST['goodcurrency'];				
+				$order_id  =  absint( $_GET['order'] );
+				$order_key =  $_GET['key'];
 				
-				
-				// mb_serial_no: 워드프레스의 woocommerce 주문번호를 입력하면 되지만 woocommerce의 경우 주문완료되기 전까지 주문번호를 알 수 없는 시스템이므로 임의의 값(고정값)을넣어 보낸다.
-				// mb_serial_no의 경우 필수 필드가 아니다보니 단순히 hash check를 위해 고정 값을 사용해도 문제가 없다.
-				// hash 문자열 형식: replycode + tid + mb_serial_no + unitprice + goodcurrency
-				// hash 문자열 예제: 0000 + devbasic_2013-1-7.1340279401 +  1000  + KRW
-				
-				$hash_string = $_POST['replycode'].$_POST['tid'].$_POST['mb_serial_no'].$_POST['unitprice'].$goodcurrency;
-				$hashresult_server = hash('sha256', $this->api_auth_hash . $hash_string);
-				
-				// hash값 일치하지 않을경우 결제 취소
-				if( $hashresult_server != $_POST['hashresult']) {
+				// make sure it is valid request
+				$woocommerce->verify_nonce( 'process_payment_action' );
+			
+		    	$logger = $woocommerce->logger();
+		    	$is_log_enabled = $this->is_log_enabled == 'yes' ? true : false;
+		    	$is_api_auth_hash_enabled = $this->is_api_auth_hash_enabled == 'yes' ? true : false;
+	
+				if($is_log_enabled) $logger->add($this->log_filename,'----------------------------------------------------');	    				
+				if($is_log_enabled) $logger->add($this->log_filename, 'POST Params: tid='.$_POST['tid'].', hashresult='.$_POST['hashresult'].', replycode='.$_POST['replycode'].', mb_serial_no='.$_POST['mb_serial_no'].', unitprice='.$_POST['unitprice'].', goodcurrency='.$_POST['goodcurrency']);
+	
+				if ( $is_api_auth_hash_enabled ) {
+					if($is_log_enabled) $logger->add($this->log_filename,'API Auth Hash check is currently enabled.');
+					// hash 결과값 생성에 필요한 POST 입력값들의 존재여부를 체크. 실패시 결제 취소
+					if( !isset($_POST['tid']) || !isset($_POST['hashresult']) || !isset($_POST['replycode']) || !isset($_POST['mb_serial_no']) || !isset($_POST['unitprice']) || !isset($_POST['goodcurrency']) ) {
+						
+						if($is_log_enabled) $logger->add($this->log_filename, 'POST input parameter missing');
+						
+						$woocommerce->add_error( __('결제 처리에 필요한 입력값들이 제대로 입력되지 않아서 결제오류가 발생하였습니다.', 'sunnysidesoft') );
+						break;
+					}
 					
-					if($is_log_enabled) $logger->add($this->log_filename,'hash match error -> server:'.$hashresult_server.' client:'.$_POST['hashresult']);
+					//PayGate Reference Doc: https://km.paygate.net/pages/viewpage.action?pageId=5439761
+					// WON -> KRW 변환
+					if( $_POST['goodcurrency'] == 'WON')
+						$goodcurrency = 'KRW';
+					else 
+						$goodcurrency = $_POST['goodcurrency'];				
 					
-					return array(
-						'result' 	=> 'success', // 실제로는 실패지만, woocommerce코드쪽에 실패처리에 대한 코드가 없으므로 성공 처리후, 에러 페이지로 redirect.
-						'redirect'	=> $this->error_page_url
-					);
+					
+					// mb_serial_no: 워드프레스의 woocommerce 주문번호를 입력하면 되지만 woocommerce의 경우 주문완료되기 전까지 주문번호를 알 수 없는 시스템이므로 임의의 값(고정값)을넣어 보낸다.
+					// mb_serial_no의 경우 필수 필드가 아니다보니 단순히 hash check를 위해 고정 값을 사용해도 문제가 없다.
+					// hash 문자열 형식: replycode + tid + mb_serial_no + unitprice + goodcurrency
+					// hash 문자열 예제: 0000 + devbasic_2013-1-7.1340279401 +  1000  + KRW
+					
+					$hash_string = $_POST['replycode'].$_POST['tid'].$_POST['mb_serial_no'].$_POST['unitprice'].$goodcurrency;
+					$hashresult_server = hash('sha256', $this->api_auth_hash . $hash_string);
+					
+					// hash값 일치하지 않을경우 결제 취소
+					if( $hashresult_server != $_POST['hashresult']) {
+						
+						if($is_log_enabled) $logger->add($this->log_filename,'hash match error -> server:'.$hashresult_server.' client:'.$_POST['hashresult']);
+						
+						$woocommerce->add_error(__('결제금액인증에 실패했습니다.', 'sunnysidesoft'));
+						break;
+					}
+					else {
+						if($is_log_enabled) $logger->add($this->log_filename,'API Auth Hash check succeeded');
+					}
 				}
 				else {
-					if($is_log_enabled) $logger->add($this->log_filename,'API Auth Hash check succeeded');
+					if($is_log_enabled) $logger->add($this->log_filename,'API Auth Hash check is currently disabled.');
 				}
-			}
-			else {
-				if($is_log_enabled) $logger->add($this->log_filename,'API Auth Hash check is currently disabled.');
-			}
-
-			if($is_log_enabled) $logger->add($this->log_filename,'Processing order #'.$order_id.'/'.$_POST['unitprice'].$goodcurrency);
-			
-	    	$order = new WC_Order( $order_id );
-
-	    	$order->payment_complete();
-			
-			// save PayGate tid to post_meta
-			update_post_meta( $order_id, '_paygate_tid', $_POST['tid'] ); // if insert '_' on post_meta key as a prefix, the value doesn't show up in the custom field meta_box
-			
-			// Remove cart
-			$woocommerce->cart->empty_cart();
 	
-			// cURL이 기본포함되지 않는 웹서버이용자를 위해, 기본적으로 thankyou_page() 함수에서 자바스크립트로 verifyReceived()를 호출해서 페이게이트에 verifyNum+100 전송하게 되어있음.
-			// cURL 라이브러리를 이용해서 verifyNum+100 로직 실행(woocommerce DB에 주문 결제처리 완료되었다는 의미로 페이게이트쪽에 전송하는 값)하려면 다음 코드를 주석해제
-/*
-	        $ch = curl_init(); 
-	        curl_setopt($ch, CURLOPT_URL, 'https://service.paygate.net/admin/settle/verifyReceived.jsp?tid='.$_POST['tid'].'&verifyNum=100');
-	        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //return the transfer as a string 
+				if($is_log_enabled) $logger->add($this->log_filename,'Processing order #'.$order_id.'/'.$_POST['unitprice'].$goodcurrency);
+				
+		    	$order = new WC_Order( $order_id );
 	
-	        $output = curl_exec($ch); 
-	        curl_close($ch);
-*/
-			
-			if($is_log_enabled) $logger->add($this->log_filename,'Payment completed. Redirecting to thankyou page');
-			
-			// Return thankyou redirect
-			return array(
-				'result' 	=> 'success',
-				'redirect'	=> add_query_arg('tid', $_POST['tid'], add_query_arg('key', $order->order_key, add_query_arg('order', $order->id, get_permalink(woocommerce_get_page_id('thanks')))))
-			);
+		    	$order->payment_complete();
+		    	
+				$woocommerce->cart->empty_cart();
+				
+				// save PayGate tid to post_meta
+				update_post_meta( $order_id, '_paygate_tid', $_POST['tid'] ); // if insert '_' on post_meta key as a prefix, the value doesn't show up in the custom field meta_box
+		
+				// cURL이 기본포함되지 않는 웹서버이용자를 위해, 기본적으로 thankyou_page() 함수에서 자바스크립트로 verifyReceived()를 호출해서 페이게이트에 verifyNum+100 전송하게 되어있음.
+				// cURL 라이브러리를 이용해서 verifyNum+100 로직 실행(woocommerce DB에 주문 결제처리 완료되었다는 의미로 페이게이트쪽에 전송하는 값)하려면 다음 코드를 주석해제
+	/*
+		        $ch = curl_init(); 
+		        curl_setopt($ch, CURLOPT_URL, 'https://service.paygate.net/admin/settle/verifyReceived.jsp?tid='.$_POST['tid'].'&verifyNum=100');
+		        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //return the transfer as a string 
+		
+		        $output = curl_exec($ch); 
+		        curl_close($ch);
+	*/
+				
+				if($is_log_enabled) $logger->add($this->log_filename,'Payment completed. Redirecting to thankyou page');
+				
+				$redirect_url = add_query_arg('tid', $_POST['tid'], add_query_arg('key', $order->order_key, add_query_arg('order', $order->id, get_permalink(woocommerce_get_page_id('thanks')))));
+				wp_safe_redirect($redirect_url);
+				exit;
+			}
 
+			// 에러 처리
+			$woocommerce->add_error(__('결제중에 오류가 발생하였습니다.', 'sunnysidesoft'));
+			wp_safe_redirect( add_query_arg('order', $order->id, add_query_arg( 'key', $order->order_key, get_permalink(woocommerce_get_page_id('pay')))) );
+			exit;
+			
+			
 	    }
 	
 	}
