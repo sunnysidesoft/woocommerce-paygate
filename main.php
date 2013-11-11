@@ -13,10 +13,10 @@ Author URI: http://sunnysidesoft.com/
 	
 */
 
-add_action('plugins_loaded', 'woocommerce_gateway_paygate_init', 0);
+add_action('plugins_loaded', 'ss_gateway_paygate_init', 0);
 
-add_action('wp_print_styles', 'woocommerce_gateway_paygate_style');
-add_action('wp_print_scripts', 'woocommerce_gateway_paygate_script');
+add_action('wp_print_styles', 'ss_gateway_paygate_style');
+add_action('wp_print_scripts', 'ss_gateway_paygate_script');
 
 /* define( SS_PAYGATE_PLUGIN_DIR,  plugin_dir_url ( __FILE__ ) ); */
 define( SS_PAYGATE_PLUGIN_DIR,  plugins_url().'/'.basename(plugin_dir_url ( __FILE__ )).'/' ); // to resolve symbolic link path problem.
@@ -36,16 +36,16 @@ function get_woocommerce_major_version() {
 /*
 * Enqueue css file
 */
-function woocommerce_gateway_paygate_style() {
+function ss_gateway_paygate_style() {
     
-	wp_register_style('sunnysidesoft_paygate_css', SS_PAYGATE_PLUGIN_DIR.'paygate-style.css');
-    wp_enqueue_style( 'sunnysidesoft_paygate_css');
+	wp_register_style('ss_paygate_css', SS_PAYGATE_PLUGIN_DIR.'paygate-style.css');
+    wp_enqueue_style( 'ss_paygate_css');
 }
 
 /*
 * Enqueue js file
 */
-function woocommerce_gateway_paygate_script() {
+function ss_gateway_paygate_script() {
 
 	global $post, $woocommerce;
 
@@ -54,13 +54,10 @@ function woocommerce_gateway_paygate_script() {
 		
 	if( is_checkout() )
 	{
-		$suffix = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
-
 		wp_enqueue_script( 'paygate-checkout', 'https://api.paygate.net/ajax/common/OpenPayAPI.js', array(), false, false );
 
-		wp_register_script('sunnysidesoft_paygate_js', SS_PAYGATE_PLUGIN_DIR.'paygate.js');
-	    wp_enqueue_script( 'sunnysidesoft_paygate_js');
-    
+		wp_register_script('ss_paygate_js', SS_PAYGATE_PLUGIN_DIR.'paygate.js');
+	    wp_enqueue_script( 'ss_paygate_js');    
 	}
 	// thankyou 페이지에서 verifyNum +100을 전송하기 위해 스크립트 필요.
 	else if( is_page( woocommerce_get_page_id( 'thanks' ) ) ) {
@@ -70,31 +67,13 @@ function woocommerce_gateway_paygate_script() {
 }
 
 
-function add_my_currency( $currencies ) {
-	$currencies['Korean'] = 'Korean won(₩)';
-	return $currencies;
-}
 
-function add_my_currency_symbol( $currency_symbol, $currency ) {
-	switch( $currency ) {
-		case 'Korean': $currency_symbol = '₩'; break;
-	}
-	return $currency_symbol;
-}
 
-function woocommerce_gateway_paygate_init() {
+function ss_gateway_paygate_init() {
 	if ( !class_exists( 'WC_Payment_Gateway' ) ) return;
  
-	/**
- 	 * Gateway class
- 	 */
 	class WC_Gateway_PayGate extends WC_Payment_Gateway {
-		 /**
-	     * Constructor for the gateway.
-	     *
-	     * @access public
-	     * @return void
-	     */
+
 	    public function __construct() {
 			$this->id				= 'paygatekorea'; // 주의: $order->payment_method에 저장되는 unique값이 이것.
 			$this->icon 			= apply_filters('woocommerce_paygatekorea_icon', '');
@@ -118,7 +97,6 @@ function woocommerce_gateway_paygate_init() {
 				$this->account_name     = $this->get_option('account_name');
 				
 				$this->mid              = $this->get_option('mid');
-				$this->goodname         = $this->get_option('goodname');
 				$this->is_api_auth_hash_enabled         = $this->get_option('is_api_auth_hash_enabled');
 				$this->api_auth_hash         = $this->get_option('api_auth_hash');
 				$this->error_page_url         = $this->get_option('error_page_url');			
@@ -129,8 +107,8 @@ function woocommerce_gateway_paygate_init() {
 			 else {
 			 
 				// Woocommerce에 한국 원단위 추가. 1.6버전에는 원화단위가 없음.
-				add_filter( 'woocommerce_currencies', 'add_my_currency' );
-				add_filter( 'woocommerce_currency_symbol', 'add_my_currency_symbol', 10, 2);
+				add_filter( 'woocommerce_currencies', array(&$this,'add_KRW_currency') );
+				add_filter( 'woocommerce_currency_symbol', array(&$this,'add_KRW_currency_symbol'), 10, 2);
 
 	 			// Define user set variables
 				// Woocommerce v1.6.x style
@@ -140,7 +118,6 @@ function woocommerce_gateway_paygate_init() {
 				$this->account_name     = $this->settings['account_name'];
 				
 				$this->mid              = $this->settings['mid'];
-				$this->goodname         = $this->settings['goodname'];
 				$this->is_api_auth_hash_enabled         = $this->settings['is_api_auth_hash_enabled'];			
 				$this->api_auth_hash         = $this->settings['api_auth_hash'];
 				$this->error_page_url         = $this->settings['error_page_url'];			
@@ -161,6 +138,17 @@ function woocommerce_gateway_paygate_init() {
 	
 	    }
 	
+		function add_KRW_currency( $currencies ) {
+				$currencies['Korean'] = 'Korean won(₩)';
+				return $currencies;
+		}
+
+		function add_KRW_currency_symbol( $currency_symbol, $currency ) {
+			switch( $currency ) {
+				case 'Korean': $currency_symbol = '₩'; break;
+			}
+			return $currency_symbol;
+		}
 	
 		/**
 		* Payment form on checkout page
@@ -211,12 +199,6 @@ function woocommerce_gateway_paygate_init() {
 								'title' => __( '페이게이트에서 발급받으신 상점ID(mid)를 입력하세요', 'sunnysidesoft' ),
 								'type' => 'text',
 								'description' => __( '일반적으로 등록하신 페이게이트 계정 ID와 동일합니다.', 'sunnysidesoft' ),
-								'default' => ''
-							),
-				'goodname' => array(
-								'title' => __( '결제 상품명(goodname필드)', 'sunnysidesoft' ),
-								'type' => 'text',
-								'description' => __( '결제화면 및 전표에 출력되는 상품명입니다.', 'sunnysidesoft' ),
 								'default' => ''
 							),
 				'is_api_auth_hash_enabled' => array(
@@ -309,6 +291,13 @@ function woocommerce_gateway_paygate_init() {
 			);
 		}
 		
+		/**
+	     * 실제 결제에 필요한 페이게이트 <form> 출력
+	     *
+	     * @access public
+	     * @param int $order_id
+	     * @return void
+	     */
 		function display_paygate_payment_form( $order_id ) {
 	        global $woocommerce;
 	        
@@ -330,11 +319,11 @@ function woocommerce_gateway_paygate_init() {
 				$goodname = sprintf( __( '%s 외 %s건' , 'sunnysidesoft'), $item['name'], $item_count-1 );
 	        }
 	        
-			$goodname = strip_tags($goodname);
 	        
-	
-	        
+	        // 실시간 계좌이체 경우 상품명에 특수문자(!,@,#,$,%,^,&,*등)가 포함되어 있을 경우 결제오류가 발생합니다. 상품명에 특수문자는 사용하지 말아 주시기 바랍니다. 
+	        $goodname = preg_replace ('[<>#&%@\'=,`~/"_|!\?\*\$\^\(\)\[\]\{\}\\\\\+\-\:\;\.]', "",  $goodname);	
 	        $action_url = add_query_arg('order', $order->id, add_query_arg( 'key', $order->order_key, get_permalink(woocommerce_get_page_id('pay')) ) );
+	        
 			?>
 			<div id="paygate_wrapper">
 				<div id="PGIOscreen" ></div>
@@ -370,6 +359,13 @@ function woocommerce_gateway_paygate_init() {
 	        
 	    }
 	    
+	    /**
+	     * 페이게이트 결제가 정상 완료된 시점에서 호출되며 거래금액 검증 및 지불 완료처리를 한다.
+	     *
+	     * @access public
+	     * @param int $order_id
+	     * @return void
+	     */
 		function process_payment_action() {
 		
 			if(!isset( $_POST['paygate_submit'] ))
