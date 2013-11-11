@@ -63,4 +63,3 @@ class WC_Gateway_PayGate_bank extends WC_Gateway_PayGate {
         return $args;
     }
 }
-endif;
