@@ -4,28 +4,21 @@ if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 class WC_Gateway_PayGate_card extends WC_Gateway_PayGate {
         
     function __construct(){
-               
-        $this->id					= 'paygatekorea_card';
-        $this->paygate_payment_method = '4';
-        $this->method_title			= __('Paygate(카드결제)', 'sunnysidesoft');
-        $this->method_description   = 'paygatekorea_card';
-        
-		if( $this->get_woocommerce_major_version() >= 2) {
-			$this->title 			= $this->get_option('title');
-			$this->description      = $this->get_option('description');
-			$this->thankyou_extra_message      = $this->get_option('thankyou_extra_message');
-		}	
-		else {
-			$this->title 			= $this->settings['title'];
-			$this->description      = $this->settings['description'];
-			$this->thankyou_extra_message      = $this->settings['thankyou_extra_message'];	
-		}
-		
-		// should be called after the child class constructor is over
 		parent::__construct();
+		
+        $this->id					= 'paygatekorea_card';
+        $this->paygate_payment_method = 'card';
+        $this->method_title			= __('Paygate(카드결제)', 'sunnysidesoft');
+        $this->method_description   = 'paygatekorea_card';  
+        
+        // 아래 세 함수는 id, method_title 등이 모두 설정된 후에 호출되어야함
+        $this->init_form_fields();
+		$this->init_settings();			
+        $this->load_settings(); 
 	}
+	
 
-    public function init_form_fields() {
+    function init_form_fields() {
         parent::init_form_fields();
                 
         $this->form_fields = array_merge( $this->form_fields, array(
@@ -51,15 +44,11 @@ class WC_Gateway_PayGate_card extends WC_Gateway_PayGate {
     }
         
 
-    public function get_paygate_args( $order ) {
-        $receipttoname = $order->billing_last_name.$order->billing_first_name;
-        
-        $args = array(
-            'goodcurrency'  => 'WON',
-            'socialnumber'	=> '',
-            'receipttoname'	=> $receipttoname,
-        );
-
-        return $args;
+	function display_extra_inputs( $order ) {
+    ?>
+     <input type="hidden" name="socialnumber" value="" />
+	 <input type="hidden" name="carrier" value="" />
+	 <input type="hidden" name="receipttotel" value="" />
+  	<?php
     }
 }

@@ -58,7 +58,7 @@ function ss_gateway_paygate_init() {
 	if ( !class_exists( 'WC_Payment_Gateway' ) ) return;
 	
 	require_once('class-wc-gateway-paygate.php');
-	require_once('class-wc-gateway-paygate-card.php');
+	
 	require_once('class-wc-gateway-paygate-card.php');
 	require_once('class-wc-gateway-paygate-mobile.php');
 	require_once('class-wc-gateway-paygate-bank.php');		
@@ -72,8 +72,5 @@ function ss_gateway_paygate_init() {
 		return $methods;
 	}
 	add_filter('woocommerce_payment_gateways', 'woocommerce_add_gateway_paygate' );
-	
-	
-	
-	
 } 
+

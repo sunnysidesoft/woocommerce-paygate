@@ -7,17 +7,21 @@ class WC_Gateway_PayGate extends WC_Payment_Gateway {
 		    global $woocommerce;
 
 	    	// 공통 변수 초기화
-/* 			$this->id				= 'paygatekorea'; // 주의: $order->payment_method에 저장되는 unique값이 이것. */
 			$this->icon 			= '';
 			$this->has_fields 		= true;
 			$this->log_filename = 'paygate_transactions';
-			
-			$this->init_form_fields();
-			$this->init_settings();
-			
+
+	    }
+	    
+	    // this should called after 'init_settings()'
+	    function load_settings() {
 			if( $this->get_woocommerce_major_version() >= 2) {
 				// Define user set variables for
 				// Woocommerce v2.0.x style:
+				$this->title 			= $this->get_option('title');
+				$this->description      = $this->get_option('description');
+				$this->thankyou_extra_message      = $this->get_option('thankyou_extra_message');
+	
 				$this->mid              = $this->get_option('mid');
 				$this->is_api_auth_hash_enabled         = $this->get_option('is_api_auth_hash_enabled');
 				$this->api_auth_hash         = $this->get_option('api_auth_hash');		
@@ -26,6 +30,10 @@ class WC_Gateway_PayGate extends WC_Payment_Gateway {
 				add_action('woocommerce_update_options_payment_gateways_'.$this->id, array($this, 'process_admin_options'));
 			}	
 			else {
+				$this->title 			= $this->settings['title'];
+				$this->description      = $this->settings['description'];
+				$this->thankyou_extra_message      = $this->settings['thankyou_extra_message'];	
+			
 				$this->mid              = $this->settings['mid'];
 				$this->is_api_auth_hash_enabled         = $this->settings['is_api_auth_hash_enabled'];			
 				$this->api_auth_hash         = $this->settings['api_auth_hash'];
@@ -90,12 +98,13 @@ class WC_Gateway_PayGate extends WC_Payment_Gateway {
 	    function init_form_fields() {
 	
 	    	$this->form_fields = array(
+	    	
 				'enabled' => array(
 								'title' => __( 'Enable/Disable', 'woocommerce' ),
 								'type' => 'checkbox',
-								'label' => __( 'Enable PayGate', 'sunnysidesoft' ),
+								'label' => __( '활성화', 'sunnysidesoft' ),
 								'default' => 'yes'
-							),							
+							),						
 				'mid' => array(
 								'title' => __( '페이게이트에서 발급받으신 상점ID(mid)를 입력하세요', 'sunnysidesoft' ),
 								'type' => 'text',
@@ -202,7 +211,7 @@ class WC_Gateway_PayGate extends WC_Payment_Gateway {
 		function display_paygate_payment_form( $order_id ) {
 	        global $woocommerce;
 	        
-	        $order = new WC_Order( $order_id );
+	        $order = new WC_Order( $order_id );			$current_user = wp_get_current_user();
 	        
 	        // 결제시 표기될 상품명을 생성
 	        $items = $order->get_items();
@@ -249,6 +258,7 @@ class WC_Gateway_PayGate extends WC_Payment_Gateway {
 						<input type="hidden" name="hashresult" value="">
 						<input type="hidden" name="mb_serial_no" value="<?php echo $order_id;?>">
 						<input type="hidden" name="tid" value="">
+						<?php $this->display_extra_inputs($order); ?>
 					</fieldset>
 					<input type="hidden" name="paygate_submit" />
 				 </form>
