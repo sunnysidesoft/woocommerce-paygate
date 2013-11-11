@@ -18,20 +18,7 @@ add_action('plugins_loaded', 'ss_gateway_paygate_init', 0);
 add_action('wp_print_styles', 'ss_gateway_paygate_style');
 add_action('wp_print_scripts', 'ss_gateway_paygate_script');
 
-/* define( SS_PAYGATE_PLUGIN_DIR,  plugin_dir_url ( __FILE__ ) ); */
-define( SS_PAYGATE_PLUGIN_DIR,  plugins_url().'/'.basename(plugin_dir_url ( __FILE__ )).'/' ); // to resolve symbolic link path problem.
-
-function get_woocommerce_major_version() {
-	global $woocommerce;
-	
-	$verion_code = explode('.', $woocommerce->version );
-
-	if( isset($verion_code) && count($verion_code) > 0 )
-		return $verion_code[0];
-	else {
-		return '1';
-	}
-}
+define( SS_PAYGATE_PLUGIN_DIR,  plugin_dir_url ( __FILE__ ) ); 
 
 /*
 * Enqueue css file
@@ -67,65 +54,63 @@ function ss_gateway_paygate_script() {
 }
 
 
-
-
 function ss_gateway_paygate_init() {
 	if ( !class_exists( 'WC_Payment_Gateway' ) ) return;
  
+	require_once('class-wc-gateway-paygate-card.php');
+	require_once('class-wc-gateway-paygate-mobile.php');
+	require_once('class-wc-gateway-paygate-bank.php');		
+ 	/**
+ 	* Add the Paygate Gateways to WooCommerce
+ 	**/
+	function woocommerce_add_gateway_paygate($methods) {
+		$methods[] = 'WC_Gateway_PayGate_card';
+		$methods[] = 'WC_Gateway_PayGate_mobile';
+		$methods[] = 'WC_Gateway_PayGate_bank';
+		return $methods;
+	}
+	add_filter('woocommerce_payment_gateways', 'woocommerce_add_gateway_paygate' );
+	
+	
 	class WC_Gateway_PayGate extends WC_Payment_Gateway {
-
+		public static $version = '1.1';
+		
 	    public function __construct() {
-			$this->id				= 'paygatekorea'; // 주의: $order->payment_method에 저장되는 unique값이 이것.
-			$this->icon 			= apply_filters('woocommerce_paygatekorea_icon', '');
-			$this->has_fields 		= true;
-			$this->method_title     = __( 'PayGate', 'sunnysidesoft' ); // 단순 제목타이틀
-			// Load the form fields.
-			$this->init_form_fields();
-	
-			// Load the settings.
-			$this->init_settings();
-	
-			
-			global $woocommerce;
+		    global $woocommerce;
 
-			if( get_woocommerce_major_version() >= 2) {
+	    	// 공통 변수 초기화
+/* 			$this->id				= 'paygatekorea'; // 주의: $order->payment_method에 저장되는 unique값이 이것. */
+			$this->icon 			= '';
+			$this->has_fields 		= true;
+			$this->log_filename = 'paygate_transactions';
+			
+			$this->init_form_fields();
+			$this->init_settings();
+			
+			if( $this->get_woocommerce_major_version() >= 2) {
 				// Define user set variables for
 				// Woocommerce v2.0.x style:
-				$this->title 			= $this->get_option('title');
-				$this->description      = $this->get_option('description');
-				$this->thankyou_extra_message      = $this->get_option('thankyou_extra_message');
-				$this->account_name     = $this->get_option('account_name');
-				
 				$this->mid              = $this->get_option('mid');
 				$this->is_api_auth_hash_enabled         = $this->get_option('is_api_auth_hash_enabled');
-				$this->api_auth_hash         = $this->get_option('api_auth_hash');
-				$this->error_page_url         = $this->get_option('error_page_url');			
+				$this->api_auth_hash         = $this->get_option('api_auth_hash');		
 							
 				$this->is_log_enabled         = $this->get_option('is_log_enabled');	
 				add_action('woocommerce_update_options_payment_gateways_'.$this->id, array($this, 'process_admin_options'));
 			}	
-			 else {
-			 
+			else {
+				$this->mid              = $this->settings['mid'];
+				$this->is_api_auth_hash_enabled         = $this->settings['is_api_auth_hash_enabled'];			
+				$this->api_auth_hash         = $this->settings['api_auth_hash'];
+							
+				$this->is_log_enabled         = $this->settings['is_log_enabled'];
+
 				// Woocommerce에 한국 원단위 추가. 1.6버전에는 원화단위가 없음.
 				add_filter( 'woocommerce_currencies', array(&$this,'add_KRW_currency') );
 				add_filter( 'woocommerce_currency_symbol', array(&$this,'add_KRW_currency_symbol'), 10, 2);
 
-	 			// Define user set variables
-				// Woocommerce v1.6.x style
-				$this->title 			= $this->settings['title'];
-				$this->description      = $this->settings['description'];
-				$this->thankyou_extra_message      = $this->settings['thankyou_extra_message'];			
-				$this->account_name     = $this->settings['account_name'];
-				
-				$this->mid              = $this->settings['mid'];
-				$this->is_api_auth_hash_enabled         = $this->settings['is_api_auth_hash_enabled'];			
-				$this->api_auth_hash         = $this->settings['api_auth_hash'];
-				$this->error_page_url         = $this->settings['error_page_url'];			
-							
-				$this->is_log_enabled         = $this->settings['is_log_enabled'];
-				
+				// 1.6버전은 woocommerce_update_options_payment_gateways액션 호출방식이 다름
 				add_action('woocommerce_update_options_payment_gateways', array(&$this, 'process_admin_options'));
-			 }
+			}
 			
 			//  for processing PayGate payment Form
 			add_action('init',  array( $this, 'process_payment_action' ) );
@@ -133,13 +118,10 @@ function ss_gateway_paygate_init() {
 	    	add_action('woocommerce_receipt_'.$this->id, array(&$this, 'display_paygate_payment_form') );
 	    	add_action('woocommerce_thankyou_'.$this->id, array(&$this, 'thankyou_page'));
 
-	    	
-	    	$this->log_filename = 'paygate_transactions';
-	
 	    }
 	
 		function add_KRW_currency( $currencies ) {
-				$currencies['Korean'] = 'Korean won(₩)';
+				$currencies['Korean'] = 'Korean Won(₩)';
 				return $currencies;
 		}
 
@@ -150,6 +132,17 @@ function ss_gateway_paygate_init() {
 			return $currency_symbol;
 		}
 	
+		function get_woocommerce_major_version() {
+			global $woocommerce;
+			
+			$verion_code = explode('.', $woocommerce->version );
+		
+			if( isset($verion_code) && count($verion_code) > 0 )
+				return $verion_code[0];
+			else {
+				return '1';
+			}
+		}
 		/**
 		* Payment form on checkout page
 		*/
@@ -174,26 +167,6 @@ function ss_gateway_paygate_init() {
 								'type' => 'checkbox',
 								'label' => __( 'Enable PayGate', 'sunnysidesoft' ),
 								'default' => 'yes'
-							),
-				'title' => array(
-								'title' => __( '결제수단 명칭', 'sunnysidesoft' ),
-								'type' => 'text',
-								'description' => __( '결제 수단 선택 화면에서 출력될 결제 수단의 이름을 입력하세요.', 'sunnysidesoft' ),
-								'default' => __( '신용카드', 'sunnysidesoft' )
-							),
-				'description' => array(
-								'title' => __( '결제 수단 선택시 추가 설명 입력', 'sunnysidesoft' ),
-								'type' => 'textarea',
-								'description' => '',
-								
-								'default' => __('페이게이트를 통해 신용카드로 안전하게 결제합니다.', 'sunnysidesoft')
-							),
-				'thankyou_extra_message' => array(
-								'title' => __( '주문 완료 화면 추가 메시지', 'sunnysidesoft' ),
-								'type' => 'textarea',
-								'description' => '결제후 주문 완료화면에서 추가적으로 보여줄 메시지를 입력하세요.',
-								
-								'default' => __('신용카드 결제가 안전하게 처리되었습니다.', 'sunnysidesoft')
 							),							
 				'mid' => array(
 								'title' => __( '페이게이트에서 발급받으신 상점ID(mid)를 입력하세요', 'sunnysidesoft' ),
@@ -334,7 +307,7 @@ function ss_gateway_paygate_init() {
 						<input type="hidden" name="charset" value="UTF-8">
 						<input type="hidden" name="KR">
 
-						<input type="hidden" name="paymethod" value="card">
+						<input type="hidden" name="paymethod" value="<?php echo $this->paygate_payment_method;?>">
 						<input type="hidden" name="unitprice" value="<?php echo (int)$order->get_total();?>">
 						<input type="hidden" name="goodcurrency" value="WON">
 						
@@ -475,13 +448,4 @@ function ss_gateway_paygate_init() {
 	
 	}
 	
-	/**
- 	* Add the Gateway to WooCommerce
- 	**/
-	function woocommerce_add_gateway_paygate($methods) {
-		$methods[] = 'WC_Gateway_PayGate';
-		return $methods;
-	}
-	
-	add_filter('woocommerce_payment_gateways', 'woocommerce_add_gateway_paygate' );
 } 
