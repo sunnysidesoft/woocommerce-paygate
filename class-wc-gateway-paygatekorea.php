@@ -1,6 +1,6 @@
 <?php
 
-class WC_Gateway_PayGate extends WC_Payment_Gateway {
+class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 		public static $version = '1.1';
 		
 	    public function __construct() {

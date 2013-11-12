@@ -57,18 +57,18 @@ function ss_gateway_paygate_script() {
 function ss_gateway_paygate_init() {
 	if ( !class_exists( 'WC_Payment_Gateway' ) ) return;
 	
-	require_once('class-wc-gateway-paygate.php');
+	require_once('class-wc-gateway-paygatekorea.php');
 	
-	require_once('class-wc-gateway-paygate-card.php');
-	require_once('class-wc-gateway-paygate-mobile.php');
-	require_once('class-wc-gateway-paygate-bank.php');		
+	require_once('class-wc-gateway-paygatekorea-card.php');
+	require_once('class-wc-gateway-paygatekorea-mobile.php');
+	require_once('class-wc-gateway-paygatekorea-bank.php');		
  	/**
  	* Add the Paygate Gateways to WooCommerce
  	**/
 	function woocommerce_add_gateway_paygate($methods) {
-		$methods[] = 'WC_Gateway_PayGate_card';
-		$methods[] = 'WC_Gateway_PayGate_mobile';
-		$methods[] = 'WC_Gateway_PayGate_bank';
+		$methods[] = 'WC_Gateway_PayGateKorea_card';
+		$methods[] = 'WC_Gateway_PayGateKorea_mobile';
+		$methods[] = 'WC_Gateway_PayGateKorea_bank';
 		return $methods;
 	}
 	add_filter('woocommerce_payment_gateways', 'woocommerce_add_gateway_paygate' );

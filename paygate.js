@@ -35,7 +35,7 @@ jQuery(document).ready(function($) {
 		if( replycode != '0000') {
 
 			// 기존 결제 실패시 혹은 초기결제시 페이게이트 결제코드 진행
-			jQuery('input[name=tid], input[name=replycode], input[name=replyMsg],').val(''); //reset tid, replycode, replyMsg fields are required on retry.
+			jQuery('input[name=tid], input[name=replycode], input[name=replyMsg]').val(''); //reset tid, replycode, replyMsg fields are required on retry.
 			jQuery('#paygate_submit_btn').css('visibility','hidden');
 			doTransaction(document.PGIOForm);
 										

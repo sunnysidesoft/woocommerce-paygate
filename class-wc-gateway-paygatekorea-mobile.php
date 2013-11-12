@@ -1,7 +1,7 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-class WC_Gateway_PayGate_mobile extends WC_Gateway_PayGate {
+class WC_Gateway_PayGateKorea_mobile extends WC_Gateway_PayGateKorea {
         
     function __construct(){
   		parent::__construct();
