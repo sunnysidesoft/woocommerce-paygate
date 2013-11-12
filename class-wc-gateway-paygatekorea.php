@@ -7,16 +7,17 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 		    global $woocommerce;
 
 	    	// 공통 변수 초기화
+	    	// common variable init
 			$this->icon 			= '';
 			$this->has_fields 		= true;
 			$this->log_filename = 'paygate_transactions';
 
 	    }
 	    
-	    // this should called after 'init_settings()'
+	    // This should called after 'init_settings()'
 	    function load_settings() {
 			if( $this->get_woocommerce_major_version() >= 2) {
-				// Define user set variables for
+
 				// Woocommerce v2.0.x style:
 				$this->title 			= $this->get_option('title');
 				$this->description      = $this->get_option('description');
@@ -30,6 +31,7 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 				add_action('woocommerce_update_options_payment_gateways_'.$this->id, array($this, 'process_admin_options'));
 			}	
 			else {
+				// Woocommerce v1.6.x style:
 				$this->title 			= $this->settings['title'];
 				$this->description      = $this->settings['description'];
 				$this->thankyou_extra_message      = $this->settings['thankyou_extra_message'];	
@@ -41,16 +43,20 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 				$this->is_log_enabled         = $this->settings['is_log_enabled'];
 
 				// Woocommerce에 한국 원단위 추가. 1.6버전에는 원화단위가 없음.
+				// Woocommerce 1.6 doesn't have Korean WON support, so add from here.
 				add_filter( 'woocommerce_currencies', array(&$this,'add_KRW_currency') );
 				add_filter( 'woocommerce_currency_symbol', array(&$this,'add_KRW_currency_symbol'), 10, 2);
 
-				// 1.6버전은 woocommerce_update_options_payment_gateways액션 호출방식이 다름
+				// 1.6.x uses different 'woocommerce_update_options_payment_gateways' action
 				add_action('woocommerce_update_options_payment_gateways', array(&$this, 'process_admin_options'));
 			}
 			
-			//  for processing PayGate payment Form
-			add_action('init',  array( $this, 'process_payment_action' ) );
 
+			// For processing PayGate payment Form.
+			// WC_Payment_Gateways are initialized after $woocommerce->init_checkout() which is called at 'get_header' hook.
+			// Therefore this should be called after that.
+			add_action('get_header',  array( &$this, 'process_payment_action' ), 20 );
+	
 	    	add_action('woocommerce_receipt_'.$this->id, array(&$this, 'display_paygate_payment_form') );
 	    	add_action('woocommerce_thankyou_'.$this->id, array(&$this, 'thankyou_page'));
 
@@ -79,9 +85,8 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 				return '1';
 			}
 		}
-		/**
-		* Payment form on checkout page
-		*/
+
+
 		function payment_fields() {
 		
 			 if ($this->description) : ?>
@@ -153,7 +158,7 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 	    		// Generate the HTML For the settings form.
 	    		$this->generate_settings_html();
 	    	?>
-			</table><!--/.form-table-->
+			</table>
 	    	<?php
 	    }
 	
@@ -173,7 +178,8 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 			<script language="javascript">
 				
 				jQuery(document).ready(function(){
-					  //verifyNum+100 로직 실행(woocommerce DB에 주문 결제처리 완료되었다는 의미로 페이게이트쪽에 전송하는 값)
+					  // verifyNum+100 로직 실행(woocommerce DB에 주문 결제처리 완료되었다는 의미로 페이게이트쪽에 전송하는 값)
+					  // Let Paygate know that payment result went through to Woocommerce DB successfully by sending verifyNum+100 
 					  setPGIOElement('apilog','100');
 					  setPGIOElement('tid','<?=$_GET['tid'];?>');
 					  verifyReceived();
@@ -203,6 +209,7 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 		
 		/**
 	     * 실제 결제에 필요한 페이게이트 <form> 출력
+	     * Print out required <form> for Paygate 
 	     *
 	     * @access public
 	     * @param int $order_id
@@ -214,6 +221,7 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 	        $order = new WC_Order( $order_id );			$current_user = wp_get_current_user();
 	        
 	        // 결제시 표기될 상품명을 생성
+	        // Create goodname based on the items in the order
 	        $items = $order->get_items();
 			$item_count = sizeof( $items );
 			
@@ -230,7 +238,8 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 	        }
 	        
 	        
-	        // 실시간 계좌이체 경우 상품명에 특수문자(!,@,#,$,%,^,&,*등)가 포함되어 있을 경우 결제오류가 발생합니다. 상품명에 특수문자는 사용하지 말아 주시기 바랍니다. 
+	        // 실시간 계좌이체 경우 상품명에 특수문자(!,@,#,$,%,^,&,*등)가 포함되어 있을 경우 결제오류가 발생합니다. 상품명에 특수문자는 사용하지 말아 주시기 바랍니다.
+	        // Remove all special characters((!,@,#,$,%,^,&,*,etc.) to prevent payment errors.
 	        $goodname = preg_replace ('[<>#&%@\'=,`~/"_|!\?\*\$\^\(\)\[\]\{\}\\\\\+\-\:\;\.]', "",  $goodname);	
 	        $action_url = add_query_arg('order', $order->id, add_query_arg( 'key', $order->order_key, get_permalink(woocommerce_get_page_id('pay')) ) );
 	        
@@ -272,6 +281,7 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 	    
 	    /**
 	     * 페이게이트 결제가 정상 완료된 시점에서 호출되며 거래금액 검증 및 지불 완료처리를 한다.
+	     * Apply payment amount verification logic based on HASH API provided by Paygate Korea.
 	     *
 	     * @access public
 	     * @param int $order_id
@@ -306,7 +316,9 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 	
 				if ( $is_api_auth_hash_enabled ) {
 					if($is_log_enabled) $logger->add($this->log_filename,'API Auth Hash check is currently enabled.');
-					// hash 결과값 생성에 필요한 POST 입력값들의 존재여부를 체크. 실패시 결제 취소
+
+					// hash 결과값 생성에 필요한 POST 입력값들의 존재여부를 체크.
+					// make sure all required POST parameters are set. 
 					if( !isset($_POST['tid']) || !isset($_POST['hashresult']) || !isset($_POST['replycode']) || !isset($_POST['mb_serial_no']) || !isset($_POST['unitprice']) || !isset($_POST['goodcurrency']) ) {
 						
 						if($is_log_enabled) $logger->add($this->log_filename, 'POST input parameter missing');
@@ -316,22 +328,19 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 					}
 					
 					//PayGate Reference Doc: https://km.paygate.net/pages/viewpage.action?pageId=5439761
-					// WON -> KRW 변환
+					// WON -> KRW conversion
 					if( $_POST['goodcurrency'] == 'WON')
 						$goodcurrency = 'KRW';
 					else 
 						$goodcurrency = $_POST['goodcurrency'];				
 					
-					
-					// mb_serial_no: 워드프레스의 woocommerce 주문번호를 입력하면 되지만 woocommerce의 경우 주문완료되기 전까지 주문번호를 알 수 없는 시스템이므로 임의의 값(고정값)을넣어 보낸다.
-					// mb_serial_no의 경우 필수 필드가 아니다보니 단순히 hash check를 위해 고정 값을 사용해도 문제가 없다.
+					// Paygate Hash Verification Logic
 					// hash 문자열 형식: replycode + tid + mb_serial_no + unitprice + goodcurrency
-					// hash 문자열 예제: 0000 + devbasic_2013-1-7.1340279401 +  1000  + KRW
-					
+					// hash 문자열 예제: 0000 + devbasic_2013-1-7.1340279401 +  1000  + KRW					
 					$hash_string = $_POST['replycode'].$_POST['tid'].$_POST['mb_serial_no'].$_POST['unitprice'].$goodcurrency;
 					$hashresult_server = hash('sha256', $this->api_auth_hash . $hash_string);
 					
-					// hash값 일치하지 않을경우 결제 취소
+
 					if( $hashresult_server != $_POST['hashresult']) {
 						
 						if($is_log_enabled) $logger->add($this->log_filename,'hash match error -> server:'.$hashresult_server.' client:'.$_POST['hashresult']);
@@ -355,11 +364,14 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 		    	
 				$woocommerce->cart->empty_cart();
 				
-				// save PayGate tid to post_meta
+				// save PayGate tid to post_meta for custom uses
 				update_post_meta( $order_id, '_paygate_tid', $_POST['tid'] ); // if insert '_' on post_meta key as a prefix, the value doesn't show up in the custom field meta_box
 		
+
+
 				// cURL이 기본포함되지 않는 웹서버이용자를 위해, 기본적으로 thankyou_page() 함수에서 자바스크립트로 verifyReceived()를 호출해서 페이게이트에 verifyNum+100 전송하게 되어있음.
 				// cURL 라이브러리를 이용해서 verifyNum+100 로직 실행(woocommerce DB에 주문 결제처리 완료되었다는 의미로 페이게이트쪽에 전송하는 값)하려면 다음 코드를 주석해제
+				// Commented out: For compatibility for the server without cURL, uses javascript in thnakyou_page() instead of cURL request.				
 	/*
 		        $ch = curl_init(); 
 		        curl_setopt($ch, CURLOPT_URL, 'https://service.paygate.net/admin/settle/verifyReceived.jsp?tid='.$_POST['tid'].'&verifyNum=100');
@@ -375,8 +387,9 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 				wp_safe_redirect($redirect_url);
 				exit;
 			}
-
-			// 에러 처리
+			
+			// 결제중 에러가 발생했을 경우에만 여기 코드가 실행됩니다.
+			// If code reached here, it means payment error.
 			$woocommerce->add_error(__('결제중에 오류가 발생하였습니다.', 'sunnysidesoft'));
 			wp_safe_redirect( add_query_arg('order', $order->id, add_query_arg( 'key', $order->order_key, get_permalink(woocommerce_get_page_id('pay')))) );
 			exit;

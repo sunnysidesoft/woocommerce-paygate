@@ -12,6 +12,7 @@ class WC_Gateway_PayGateKorea_bank extends WC_Gateway_PayGateKorea {
         $this->method_description   = 'paygatekorea_bank';
         
         // 아래 세 함수는 id, method_title 등이 모두 설정된 후에 호출되어야함
+        // These functions should be called after 'id, method_title' are set
         $this->init_form_fields();
 		$this->init_settings();			
         $this->load_settings(); 
