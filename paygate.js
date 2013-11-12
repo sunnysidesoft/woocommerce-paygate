@@ -5,9 +5,6 @@ function getPGIOresult() {
 function callbacksuccess() {
 	var replycode = getPGIOElement('replycode');
 	if (replycode == '0000') {
-	
-		//결제성공후 getPGIOresult()를 호출하고 상점쪽에 결제정보가 저장되는중에 alert 호출 등 사용자의 요청을 기다리는 소스는 삽입하지 마십시오.
-		//고객이 alert('결제성공')이라는 메세지만 보고 브라우저를 종료시에 결제정보가 상점측에 정상적으로 전달될 수 없습니
 		jQuery('form[name=PGIOForm]').submit();
 		
 	} else {
@@ -35,7 +32,7 @@ jQuery(document).ready(function($) {
 		if( replycode != '0000') {
 
 			// 기존 결제 실패시 혹은 초기결제시 페이게이트 결제코드 진행
-			jQuery('input[name=tid], input[name=replycode], input[name=replyMsg],').val(''); //reset tid, replycode, replyMsg fields are required on retry.
+			jQuery('input[name=tid], input[name=replycode], input[name=replyMsg]').val(''); //reset tid, replycode, replyMsg fields are required on retry.
 			jQuery('#paygate_submit_btn').css('visibility','hidden');
 			doTransaction(document.PGIOForm);
 										
@@ -43,6 +40,7 @@ jQuery(document).ready(function($) {
 		}
 		else {
 			//페이게이트 결제 성공시 폼전송 진행
+			//Proceed form sending after the successful payment.
 			return true;
 		}
 			
