@@ -3,7 +3,7 @@
 Plugin Name: 페이게이트(PayGate) 우커머스 결제연동 플러그인
 Plugin URI: http://sunnysidesoft.com/woocommerce-paygate
 Description: Extends WooCommerce with an PayGate(Korean payment gateway company) gateway. Woocommerce에서 사용가능한 페이게이트 지불 게이트웨이 모듈입니다. 
-Version: 1.0
+Version: 1.1
 Author: SunnysideSoft, admin@sunnysidesoft.com
 Author URI: http://sunnysidesoft.com/
  
@@ -25,7 +25,8 @@ define( SS_PAYGATE_PLUGIN_DIR,  plugin_dir_url ( __FILE__ ) );
 */
 function ss_gateway_paygate_style() {
     
-	wp_register_style('ss_paygate_css', SS_PAYGATE_PLUGIN_DIR.'paygate-style.css');
+	wp_register_style('ss_paygate_css', SS_PAYGATE_PLUGIN_DIR.'css/paygate-style.css');
+	
     wp_enqueue_style( 'ss_paygate_css');
 }
 
@@ -43,7 +44,7 @@ function ss_gateway_paygate_script() {
 	{
 		wp_enqueue_script( 'paygate-checkout', 'https://api.paygate.net/ajax/common/OpenPayAPI.js', array(), false, false );
 
-		wp_register_script('ss_paygate_js', SS_PAYGATE_PLUGIN_DIR.'paygate.js');
+		wp_register_script('ss_paygate_js', SS_PAYGATE_PLUGIN_DIR.'js/paygate.js');
 	    wp_enqueue_script( 'ss_paygate_js');    
 	}
 	// thankyou 페이지에서 verifyNum +100을 전송하기 위해 스크립트 필요.

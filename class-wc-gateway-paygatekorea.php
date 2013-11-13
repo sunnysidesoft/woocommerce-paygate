@@ -225,16 +225,27 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 	        $items = $order->get_items();
 			$item_count = sizeof( $items );
 			
+			$goodname_max_length = 60;
 			if ( $item_count == 0 ) {
 				$goodname = '';	
 			}
 	        else if ( $item_count == 1 ) {
-	        	$item = $items[0];
+	        	$item = reset($items);
 		        $goodname = $item['name'];
+		        if( strlen($goodname) > $goodname_max_length ) {
+			        $goodname = mb_substr($goodname, 0, $goodname_max_length - 3, 'UTF-8');
+		        	$goodname = $goodname.'...';
+		        }
+		        	
 	        }
 	        else  {
-	        	$item = $items[0];
-				$goodname = sprintf( __( '%s 외 %s건' , 'sunnysidesoft'), $item['name'], $item_count-1 );
+	        	$item = reset($items);
+	        	$goodname = $item['name'];
+		        if( strlen($goodname) > $goodname_max_length ) {
+			        $goodname = mb_substr($goodname, 0, $goodname_max_length-8, 'UTF-8');
+			        $goodname = $goodname.'...';
+		        }
+				$goodname = sprintf( __( '%s 외 %s건' , 'sunnysidesoft'), $goodname, $item_count-1 );
 	        }
 	        
 	        
@@ -243,6 +254,7 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 	        $goodname = preg_replace ('[<>#&%@\'=,`~/"_|!\?\*\$\^\(\)\[\]\{\}\\\\\+\-\:\;\.]', "",  $goodname);	
 	        $action_url = add_query_arg('order', $order->id, add_query_arg( 'key', $order->order_key, get_permalink(woocommerce_get_page_id('pay')) ) );
 	        
+	        $receipttoname = $order->billing_first_name.' '.$order->billing_last_name;
 			?>
 			<div id="paygate_wrapper">
 				<div id="PGIOscreen" ></div>
@@ -258,8 +270,8 @@ class WC_Gateway_PayGateKorea extends WC_Payment_Gateway {
 						<input type="hidden" name="goodcurrency" value="WON">
 						
 						<input type="hidden" name="goodname" value="<?php echo $goodname; ?>">
-						<input type="hidden" name="receipttoname" value="<?php echo $current_user->user_firstname; ?>">
-						<input type="hidden" name="receipttoemail" value="<?php echo $current_user->user_email; ?>">
+						<input type="hidden" name="receipttoname" value="<?php echo $receipttoname; //$current_user->user_firstname; ?>">
+						<input type="hidden" name="receipttoemail" value="<?php echo $order->billing_email;//$current_user->user_email; ?>">
 
 						<input type="hidden" name="ResultScreen"></textarea>
 						<input type="hidden" name="replycode" value="">
